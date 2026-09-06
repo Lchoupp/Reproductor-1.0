@@ -1,13 +1,13 @@
 {
   "name": "Reproductor de Música",
   "short_name": "Music",
-  "start_url": "/Reproductor-1.0/",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0d0d0d",
   "theme_color": "#1db954",
   "orientation": "portrait",
   "lang": "es",
-  "scope": "/Reproductor-1.0/",
+  "scope": "./",
   "description": "Reproductor de música PWA con ecualizador y temporizador.",
   "icons": [
     {
