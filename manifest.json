@@ -1,16 +1,32 @@
 {
-  "name": "Reproductor de Musica",
-  "short_name": "Reproductor",
+  "name": "Reproductor de Música",
+  "short_name": "Music",
   "start_url": "/Reproductor-1.0/",
-  "scope": "/Reproductor-1.0/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#0d0d0d",
+  "theme_color": "#1db954",
+  "orientation": "portrait",
+  "lang": "es",
+  "scope": "/Reproductor-1.0/",
+  "description": "Reproductor de música PWA con ecualizador y temporizador.",
   "icons": [
     {
       "src": "icon2_512.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon2_512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon2_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
