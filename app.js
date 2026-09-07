@@ -30,7 +30,6 @@ const playlistUI = document.getElementById('lista-canciones');
 const contenedorFiltroCarpeta = document.getElementById('contenedor-filtro-carpeta');
 const selectCarpeta = document.getElementById('select-carpeta');
 
-// Referencias para el Menú y Modal de Lista Negra
 let listaNegra = JSON.parse(localStorage.getItem('listaNegra')) || [];
 const btnMenuListaNegra = document.getElementById('btn-menu-lista-negra');
 const menuDesplegableLN = document.getElementById('menu-desplegable-ln');
@@ -40,13 +39,10 @@ const modalVerListaNegra = document.getElementById('modal-ver-lista-negra');
 const btnCerrarModalLN = document.getElementById('btn-cerrar-modal-ln');
 const listaNegraElementosUI = document.getElementById('lista-negra-elementos');
 
-// Referencias para Favoritos
 let favoritos = JSON.parse(localStorage.getItem('favoritosMusic')) || [];
-const btnFavorito = document.getElementById('btn-favorito'); // Añadir este ID en HTML si se desea botón dedicado
 
-// Referencias para el Modal de Letras
 const btnVerLetra = document.getElementById('btn-ver-letra');
-const modalLetra = document.getElementById('modal-letra');
+const modalLetra = document.getElementById('modal-ver-letra');
 const btnCerrarModalLetra = document.getElementById('btn-cerrar-modal-letra');
 const textareaLetra = document.getElementById('texto-letra');
 const btnGuardarLetra = document.getElementById('btn-guardar-letra');
@@ -78,10 +74,12 @@ let tiempoRestanteSegundos = 0;
 let modoApagado = 'inmediato';
 let temporizadorExpirado = false;
 
-// Web Audio API
+// Variables de Audio y Visualizador
 let audioCtx = null;
 let trackSource = null;
 let eqNodes = [];
+let analyser = null;
+
 let eqPowerSwitch = document.getElementById('eq-power');
 let selectPreset = document.getElementById('select-preset');
 let bassBoostInput = document.getElementById('eq-bass-extra');
@@ -96,7 +94,6 @@ const PRESETS = {
     vocal: [-3, 2, 6, 4, -2]
 };
 
-// ** GESTIÓN DE INDEXEDDB PARA PERSISTENCIA DE MÚSICA, LETRAS Y CARÁTULAS EN BASE64 **
 function guardarCancionesEnDB(canciones) {
     const request = indexedDB.open("ReproductorDB", 3);
     
@@ -163,25 +160,6 @@ function cargarCancionesDeDB(callback) {
     };
 }
 
-// ** GESTIÓN DE FAVORITOS **
-function alternarFavoritoActual() {
-    if (listaCanciones.length === 0) return;
-    const cancionActual = listaCanciones[indiceActual];
-    const nombreArchivo = cancionActual.archivo.name;
-
-    const indexFav = favoritos.indexOf(nombreArchivo);
-    if (indexFav > -1) {
-        favoritos.splice(indexFav, 1);
-        alert(`"${cancionActual.titulo}" se quitó de favoritos.`);
-    } else {
-        favoritos.push(nombreArchivo);
-        alert(`"${cancionActual.titulo}" se añadió a favoritos.`);
-    }
-    localStorage.setItem('favoritosMusic', JSON.stringify(favoritos));
-    renderizarLista();
-}
-
-// ** LÓGICA DE LISTA NEGRA **
 if (btnMenuListaNegra && menuDesplegableLN) {
     btnMenuListaNegra.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -274,7 +252,6 @@ function quitarDeListaNegra(nombreArchivo) {
     alert(`"${nombreArchivo}" ha sido retirada de la lista negra.`);
 }
 
-// ** LÓGICA DE LETRAS DE CANCIONES **
 if (btnVerLetra && modalLetra) {
     btnVerLetra.addEventListener('click', () => {
         if (listaCanciones.length === 0) {
@@ -314,6 +291,9 @@ function inicializarAudioContext() {
     audioCtx = new AudioContext();
     trackSource = audioCtx.createMediaElementSource(cancion);
 
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+
     let nodoAnterior = trackSource;
     FRECUENCIAS.forEach((freq) => {
         const filter = audioCtx.createBiquadFilter();
@@ -330,7 +310,11 @@ function inicializarAudioContext() {
         nodoAnterior = filter;
         eqNodes.push(filter);
     });
-    nodoAnterior.connect(audioCtx.destination);
+
+    nodoAnterior.connect(analyser);
+    analyser.connect(audioCtx.destination);
+
+    iniciarVisualizador();
 }
 
 document.querySelectorAll('.eq-banda').forEach((slider, index) => {
@@ -769,35 +753,71 @@ function cancelarTemporizador() {
     textoTemporizador.textContent = 'Temporizador';
 }
 
+// Función encargada de dibujar el visualizador de audio en tiempo real
+function iniciarVisualizador() {
+    const canvas = document.getElementById('visualizador');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    function dibujar() {
+        requestAnimationFrame(dibujar);
+
+        analyser.getByteFrequencyData(dataArray);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const anchoBarra = (canvas.width / bufferLength) * 2.5;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            const alturaBarra = (dataArray[i] / 255) * canvas.height;
+
+            ctx.fillStyle = '#1db954'; // Color verde Spotify
+            ctx.fillRect(x, canvas.height - alturaBarra, anchoBarra, alturaBarra);
+
+            x += anchoBarra + 1;
+        }
+    }
+
+    dibujar();
+}
+
 window.addEventListener('DOMContentLoaded', () => {
     const splash = document.getElementById('splash-screen');
     const player = document.getElementById('player');
 
-    cargarCancionesDeDB((cancionesRestauradas) => {
-        todasLasCanciones = cancionesRestauradas.filter(c => !listaNegra.includes(c.archivo.name));
-        
-        const subcarpetas = new Set();
-        todasLasCanciones.forEach(c => {
-            if (c.subcarpeta && c.subcarpeta !== "Raíz") subcarpetas.add(c.subcarpeta);
-        });
-
-        selectCarpeta.innerHTML = '<option value="todas">Todas las canciones</option><option value="favoritos">⭐ Favoritos</option>';
-        if (subcarpetas.size > 0) {
-            subcarpetas.forEach(carpeta => {
-                const option = document.createElement('option');
-                option.value = carpeta;
-                option.textContent = carpeta;
-                selectCarpeta.appendChild(option);
+    try {
+        cargarCancionesDeDB((cancionesRestauradas) => {
+            todasLasCanciones = cancionesRestauradas.filter(c => !listaNegra.includes(c.archivo.name));
+            
+            const subcarpetas = new Set();
+            todasLasCanciones.forEach(c => {
+                if (c.subcarpeta && c.subcarpeta !== "Raíz") subcarpetas.add(c.subcarpeta);
             });
-            contenedorFiltroCarpeta.classList.remove('oculto');
-        } else {
-            contenedorFiltroCarpeta.classList.remove('oculto');
-        }
 
-        if (todasLasCanciones.length > 0) {
-            filtrarPorSubcarpeta('todas');
-        }
-    });
+            selectCarpeta.innerHTML = '<option value="todas">Todas las canciones</option><option value="favoritos">⭐ Favoritos</option>';
+            if (subcarpetas.size > 0) {
+                subcarpetas.forEach(carpeta => {
+                    const option = document.createElement('option');
+                    option.value = carpeta;
+                    option.textContent = carpeta;
+                    selectCarpeta.appendChild(option);
+                });
+                contenedorFiltroCarpeta.classList.remove('oculto');
+            } else {
+                contenedorFiltroCarpeta.classList.remove('oculto');
+            }
+
+            if (todasLasCanciones.length > 0) {
+                filtrarPorSubcarpeta('todas');
+            }
+        });
+    } catch (error) {
+        console.error("Error al cargar la base de datos:", error);
+    }
 
     setTimeout(() => {
         if (splash) {
