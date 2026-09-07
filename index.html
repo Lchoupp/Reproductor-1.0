@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -115,8 +116,9 @@
                 <button id="btn-siguiente" class="btn-control" title="Siguiente">
                     <i class="fa-solid fa-forward-step"></i>
                 </button>
-                <button id="btn-repetir" class="btn-secundario" title="Repetir">
-                    <i class="fa-solid fa-repeat"></i>
+                <button id="btn-repetir" class="btn-control repetir-estado-0" title="Modo de repetición">
+                    <i class="fas fa-redo-alt"></i>
+                    <span class="badge-repetir" style="display: none;">2</span>
                 </button>
             </div>
 
@@ -229,8 +231,8 @@
         </div>
     </div>
 
-    <!-- Modal de Letras -->
-    <div id="modal-letra" class="modal oculto">
+    <!-- Modal de Letras corregido con el ID correcto -->
+    <div id="modal-ver-letra" class="modal oculto">
         <div class="contenido-modal-letra">
             <div class="header-modal-letra">
                 <h3>Letra de la canción</h3>
