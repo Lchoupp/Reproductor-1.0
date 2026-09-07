@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Reproductor de Música PWA</title>
     
-    <!-- PWA Config & Theme -->
+    <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+    <!-- PWA Config & Theme --> 
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1db954">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="icon2_512.png">
+    <link rel="apple-touch-icon" href="assets/logo.svg">
 
     <!-- Estilos Externos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -36,10 +37,15 @@
                     <i class="fa-solid fa-sliders"></i>
                 </button>
                 <h2>Reproduciendo</h2>
-                <button id="btn-temporizador" class="btn-icono" title="Temporizador">
-                    <i class="fa-solid fa-clock"></i>
-                    <span id="texto-temporizador">Temporizador</span>
-                </button>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button id="btn-ver-letra" class="btn-icono" title="Ver letra">
+                        <i class="fa-solid fa-align-center"></i>
+                    </button>
+                    <button id="btn-temporizador" class="btn-icono" title="Temporizador">
+                        <i class="fa-solid fa-clock"></i>
+                        <span id="texto-temporizador">Temporizador</span>
+                    </button>
+                </div>
             </header>
 
             <!-- Buscador y Selección de Carpeta -->
@@ -60,6 +66,17 @@
                     <i class="fa-solid fa-folder-open"></i> Seleccionar Carpeta
                 </label>
                 <input type="file" id="cargar-carpeta" webkitdirectory directory multiple accept="audio/*">
+                
+                <!-- Botón de Lista Negra con Menú Desplegable -->
+                <div class="contenedor-menu-lista-negra">
+                    <button id="btn-menu-lista-negra" class="btn-cargar">
+                        <i class="fa-solid fa-ban"></i> Lista Negra <i class="fa-solid fa-caret-down"></i>
+                    </button>
+                    <div id="menu-desplegable-ln" class="menu-desplegable oculto">
+                        <button id="btn-agregar-ln"><i class="fa-solid fa-plus"></i> Añadir canción actual</button>
+                        <button id="btn-ver-ln"><i class="fa-solid fa-eye"></i> Ver lista negra</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Carátula e Información de la Canción -->
@@ -195,6 +212,30 @@
                 <button id="btn-cancelar-modal" class="btn-modal-secundario">Cancelar</button>
                 <button id="btn-iniciar-temporizador" class="btn-modal-principal">Iniciar</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal para Ver y Gestionar Lista Negra -->
+    <div id="modal-ver-lista-negra" class="modal oculto">
+        <div class="modal-contenido modal-lista-negra">
+            <h3>Canciones en Lista Negra</h3>
+            <p>Estas canciones están bloqueadas y no se cargarán:</p>
+            <ul id="lista-negra-elementos" class="ul-lista-negra"></ul>
+            <div class="modal-acciones">
+                <button id="btn-cerrar-modal-ln" class="btn-modal-principal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Letras -->
+    <div id="modal-letra" class="modal oculto">
+        <div class="contenido-modal-letra">
+            <div class="header-modal-letra">
+                <h3>Letra de la canción</h3>
+                <button id="btn-cerrar-modal-letra">&times;</button>
+            </div>
+            <textarea id="texto-letra" placeholder="No hay letra disponible. Puedes escribir o pegar la letra aquí..."></textarea>
+            <button id="btn-guardar-letra">Guardar letra</button>
         </div>
     </div>
 
