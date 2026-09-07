@@ -40,6 +40,10 @@ const modalVerListaNegra = document.getElementById('modal-ver-lista-negra');
 const btnCerrarModalLN = document.getElementById('btn-cerrar-modal-ln');
 const listaNegraElementosUI = document.getElementById('lista-negra-elementos');
 
+// Referencias para Favoritos
+let favoritos = JSON.parse(localStorage.getItem('favoritosMusic')) || [];
+const btnFavorito = document.getElementById('btn-favorito'); // Añadir este ID en HTML si se desea botón dedicado
+
 // Referencias para el Modal de Letras
 const btnVerLetra = document.getElementById('btn-ver-letra');
 const modalLetra = document.getElementById('modal-letra');
@@ -116,7 +120,7 @@ function guardarCancionesEnDB(canciones) {
                 metadata: { 
                     titulo: c.titulo, 
                     artista: c.artista, 
-                    caratula: c.caratula, // Guardamos la URL en Base64 o default directamente
+                    caratula: c.caratula, 
                     letra: c.letra || "" 
                 } 
             });
@@ -159,7 +163,25 @@ function cargarCancionesDeDB(callback) {
     };
 }
 
-// ** LÓGICA DE LISTA NEGRA: Menú Desplegable y Opciones **
+// ** GESTIÓN DE FAVORITOS **
+function alternarFavoritoActual() {
+    if (listaCanciones.length === 0) return;
+    const cancionActual = listaCanciones[indiceActual];
+    const nombreArchivo = cancionActual.archivo.name;
+
+    const indexFav = favoritos.indexOf(nombreArchivo);
+    if (indexFav > -1) {
+        favoritos.splice(indexFav, 1);
+        alert(`"${cancionActual.titulo}" se quitó de favoritos.`);
+    } else {
+        favoritos.push(nombreArchivo);
+        alert(`"${cancionActual.titulo}" se añadió a favoritos.`);
+    }
+    localStorage.setItem('favoritosMusic', JSON.stringify(favoritos));
+    renderizarLista();
+}
+
+// ** LÓGICA DE LISTA NEGRA **
 if (btnMenuListaNegra && menuDesplegableLN) {
     btnMenuListaNegra.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -449,7 +471,7 @@ inputCargarCarpeta.addEventListener('change', async (e) => {
 
     guardarCancionesEnDB(todasLasCanciones);
 
-    selectCarpeta.innerHTML = '<option value="todas">Todas las canciones</option>';
+    selectCarpeta.innerHTML = '<option value="todas">Todas las canciones</option><option value="favoritos">⭐ Favoritos</option>';
     if (subcarpetas.size > 0) {
         subcarpetas.forEach(carpeta => {
             const option = document.createElement('option');
@@ -459,7 +481,7 @@ inputCargarCarpeta.addEventListener('change', async (e) => {
         });
         contenedorFiltroCarpeta.classList.remove('oculto');
     } else {
-        contenedorFiltroCarpeta.classList.add('oculto');
+        contenedorFiltroCarpeta.classList.remove('oculto');
     }
 
     filtrarPorSubcarpeta('todas');
@@ -472,6 +494,8 @@ selectCarpeta.addEventListener('change', (e) => {
 function filtrarPorSubcarpeta(categoria) {
     if (categoria === 'todas') {
         listaCanciones = [...todasLasCanciones];
+    } else if (categoria === 'favoritos') {
+        listaCanciones = todasLasCanciones.filter(c => favoritos.includes(c.archivo.name));
     } else {
         listaCanciones = todasLasCanciones.filter(c => c.subcarpeta === categoria);
     }
@@ -479,23 +503,48 @@ function filtrarPorSubcarpeta(categoria) {
     if (listaCanciones.length > 0) {
         indiceActual = 0;
         cargarCancion(indiceActual);
+    } else {
+        pausarCancion();
+        tituloCancion.textContent = "Sin canciones";
+        artistaCancion.textContent = "Categoría vacía";
+        imagenCaratula.src = defaultWaveImage;
     }
 }
 
 function renderizarLista() {
     playlistUI.innerHTML = "";
     listaCanciones.forEach((cancionItem, index) => {
+        const esFav = favoritos.includes(cancionItem.archivo.name);
         const li = document.createElement('li');
         li.innerHTML = `
             <div class="miniatura">
                 <img src="${cancionItem.caratula}" alt="Carátula">
             </div>
-            <div class="info-cancion-lista">
+            <div class="info-cancion-lista" style="flex:1;">
                 <p class="titulo">${cancionItem.titulo}</p>
                 <p class="artista">${cancionItem.artista}</p>
             </div>
+            <button class="btn-fav-lista" style="background:none; border:none; color:${esFav ? '#1db954' : '#666'}; font-size:1rem; cursor:pointer; padding:5px;">
+                <i class="fa-${esFav ? 'solid' : 'regular'} fa-heart"></i>
+            </button>
         `;
-        li.onclick = () => cargarCancion(index);
+
+        li.querySelector('.info-cancion-lista').onclick = () => cargarCancion(index);
+        li.querySelector('.miniatura').onclick = () => cargarCancion(index);
+
+        li.querySelector('.btn-fav-lista').onclick = (e) => {
+            e.stopPropagation();
+            const nombreArchivo = cancionItem.archivo.name;
+            const idx = favoritos.indexOf(nombreArchivo);
+            if (idx > -1) {
+                favoritos.splice(idx, 1);
+            } else {
+                favoritos.push(nombreArchivo);
+            }
+            localStorage.setItem('favoritosMusic', JSON.stringify(favoritos));
+            renderizarLista();
+        };
+
         playlistUI.appendChild(li);
     });
 }
@@ -720,7 +769,6 @@ function cancelarTemporizador() {
     textoTemporizador.textContent = 'Temporizador';
 }
 
-// ** INICIO AUTOMÁTICO AL CARGAR LA PÁGINA (RECUPERA MÚSICA Y LETRAS DE INDEXEDDB) **
 window.addEventListener('DOMContentLoaded', () => {
     const splash = document.getElementById('splash-screen');
     const player = document.getElementById('player');
@@ -733,8 +781,8 @@ window.addEventListener('DOMContentLoaded', () => {
             if (c.subcarpeta && c.subcarpeta !== "Raíz") subcarpetas.add(c.subcarpeta);
         });
 
+        selectCarpeta.innerHTML = '<option value="todas">Todas las canciones</option><option value="favoritos">⭐ Favoritos</option>';
         if (subcarpetas.size > 0) {
-            selectCarpeta.innerHTML = '<option value="todas">Todas las canciones</option>';
             subcarpetas.forEach(carpeta => {
                 const option = document.createElement('option');
                 option.value = carpeta;
@@ -743,7 +791,7 @@ window.addEventListener('DOMContentLoaded', () => {
             });
             contenedorFiltroCarpeta.classList.remove('oculto');
         } else {
-            contenedorFiltroCarpeta.classList.add('oculto');
+            contenedorFiltroCarpeta.classList.remove('oculto');
         }
 
         if (todasLasCanciones.length > 0) {
