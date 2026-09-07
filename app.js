@@ -30,6 +30,23 @@ const playlistUI = document.getElementById('lista-canciones');
 const contenedorFiltroCarpeta = document.getElementById('contenedor-filtro-carpeta');
 const selectCarpeta = document.getElementById('select-carpeta');
 
+// Referencias para el Menú y Modal de Lista Negra
+let listaNegra = JSON.parse(localStorage.getItem('listaNegra')) || [];
+const btnMenuListaNegra = document.getElementById('btn-menu-lista-negra');
+const menuDesplegableLN = document.getElementById('menu-desplegable-ln');
+const btnAgregarLN = document.getElementById('btn-agregar-ln');
+const btnVerLN = document.getElementById('btn-ver-ln');
+const modalVerListaNegra = document.getElementById('modal-ver-lista-negra');
+const btnCerrarModalLN = document.getElementById('btn-cerrar-modal-ln');
+const listaNegraElementosUI = document.getElementById('lista-negra-elementos');
+
+// Referencias para el Modal de Letras
+const btnVerLetra = document.getElementById('btn-ver-letra');
+const modalLetra = document.getElementById('modal-letra');
+const btnCerrarModalLetra = document.getElementById('btn-cerrar-modal-letra');
+const textareaLetra = document.getElementById('texto-letra');
+const btnGuardarLetra = document.getElementById('btn-guardar-letra');
+
 const vistaReproductor = document.getElementById('vista-reproductor');
 const vistaEcualizador = document.getElementById('vista-ecualizador');
 const btnIrEcualizador = document.getElementById('btn-ir-ecualizador');
@@ -74,6 +91,200 @@ const PRESETS = {
     techno: [6, 4, 0, 3, 5],
     vocal: [-3, 2, 6, 4, -2]
 };
+
+// ** GESTIÓN DE INDEXEDDB PARA PERSISTENCIA DE MÚSICA Y LETRAS **
+function guardarCancionesEnDB(canciones) {
+    const request = indexedDB.open("ReproductorDB", 1);
+    
+    request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains("archivos")) {
+            db.createObjectStore("archivos", { autoIncrement: true });
+        }
+    };
+
+    request.onsuccess = (e) => {
+        const db = e.target.result;
+        const transaction = db.transaction("archivos", "readwrite");
+        const store = transaction.objectStore("archivos");
+        
+        store.clear();
+        canciones.forEach(c => {
+            store.add({ 
+                archivo: c.archivo, 
+                subcarpeta: c.subcarpeta, 
+                metadata: { 
+                    titulo: c.titulo, 
+                    artista: c.artista, 
+                    caratula: c.caratula,
+                    letra: c.letra || "" 
+                } 
+            });
+        });
+    };
+}
+
+function cargarCancionesDeDB(callback) {
+    const request = indexedDB.open("ReproductorDB", 1);
+    
+    request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains("archivos")) {
+            db.createObjectStore("archivos", { autoIncrement: true });
+        }
+    };
+
+    request.onsuccess = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains("archivos")) return;
+        
+        const transaction = db.transaction("archivos", "readonly");
+        const store = transaction.objectStore("archivos");
+        const getAllRequest = store.getAll();
+
+        getAllRequest.onsuccess = () => {
+            const resultados = getAllRequest.result;
+            if (resultados && resultados.length > 0) {
+                const cancionesRestauradas = resultados.map(item => ({
+                    archivo: item.archivo,
+                    subcarpeta: item.subcarpeta,
+                    titulo: item.metadata.titulo,
+                    artista: item.metadata.artista,
+                    caratula: item.metadata.caratula,
+                    letra: item.metadata.letra || ""
+                }));
+                callback(cancionesRestauradas);
+            }
+        };
+    };
+}
+
+// ** LÓGICA DE LISTA NEGRA: Menú Desplegable y Opciones **
+if (btnMenuListaNegra && menuDesplegableLN) {
+    btnMenuListaNegra.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuDesplegableLN.classList.toggle('oculto');
+    });
+
+    document.addEventListener('click', () => {
+        menuDesplegableLN.classList.add('oculto');
+    });
+}
+
+if (btnAgregarLN) {
+    btnAgregarLN.addEventListener('click', () => {
+        menuDesplegableLN.classList.add('oculto');
+        if (listaCanciones.length === 0) {
+            alert("No hay ninguna canción reproduciéndose.");
+            return;
+        }
+
+        const cancionActualItem = listaCanciones[indiceActual];
+        const nombreArchivo = cancionActualItem.archivo.name;
+
+        if (!listaNegra.includes(nombreArchivo)) {
+            listaNegra.push(nombreArchivo);
+            localStorage.setItem('listaNegra', JSON.stringify(listaNegra));
+            alert(`"${cancionActualItem.titulo}" se añadió a la lista negra.`);
+            
+            todasLasCanciones = todasLasCanciones.filter(c => c.archivo.name !== nombreArchivo);
+            listaCanciones = listaCanciones.filter(c => c.archivo.name !== nombreArchivo);
+            
+            guardarCancionesEnDB(todasLasCanciones);
+            renderizarLista();
+
+            if (listaCanciones.length > 0) {
+                indiceActual = indiceActual % listaCanciones.length;
+                cargarCancion(indiceActual);
+            } else {
+                pausarCancion();
+                tituloCancion.textContent = "Sin canciones";
+                artistaCancion.textContent = "Carpeta limpia";
+                imagenCaratula.src = defaultWaveImage;
+                progreso.value = 0;
+            }
+        } else {
+            alert("Esta canción ya está en la lista negra.");
+        }
+    });
+}
+
+if (btnVerLN && modalVerListaNegra) {
+    btnVerLN.addEventListener('click', () => {
+        menuDesplegableLN.classList.add('oculto');
+        renderizarModalListaNegra();
+        modalVerListaNegra.classList.remove('oculto');
+    });
+
+    btnCerrarModalLN.addEventListener('click', () => {
+        modalVerListaNegra.classList.add('oculto');
+    });
+}
+
+function renderizarModalListaNegra() {
+    listaNegraElementosUI.innerHTML = '';
+    if (listaNegra.length === 0) {
+        listaNegraElementosUI.innerHTML = '<li style="justify-content: center; color: #777;">La lista negra está vacía</li>';
+        return;
+    }
+
+    listaNegra.forEach((nombreArchivo) => {
+        const li = document.createElement('li');
+        const textoMostrar = nombreArchivo.length > 25 ? nombreArchivo.substring(0, 22) + '...' : nombreArchivo;
+        
+        li.innerHTML = `
+            <span title="${nombreArchivo}">${textoMostrar}</span>
+            <button class="btn-quitar-ln">Quitar</button>
+        `;
+
+        li.querySelector('.btn-quitar-ln').addEventListener('click', () => {
+            quitarDeListaNegra(nombreArchivo);
+        });
+
+        listaNegraElementosUI.appendChild(li);
+    });
+}
+
+function quitarDeListaNegra(nombreArchivo) {
+    listaNegra = listaNegra.filter(nombre => nombre !== nombreArchivo);
+    localStorage.setItem('listaNegra', JSON.stringify(listaNegra));
+    renderizarModalListaNegra();
+    alert(`"${nombreArchivo}" ha sido retirada de la lista negra.`);
+}
+
+// ** LÓGICA DE LETRAS DE CANCIONES **
+if (btnVerLetra && modalLetra) {
+    btnVerLetra.addEventListener('click', () => {
+        if (listaCanciones.length === 0) {
+            alert("No hay ninguna canción reproduciéndose.");
+            return;
+        }
+        const cancionActual = listaCanciones[indiceActual];
+        textareaLetra.value = cancionActual.letra || "";
+        modalLetra.classList.remove('oculto');
+    });
+
+    btnCerrarModalLetra.addEventListener('click', () => {
+        modalLetra.classList.add('oculto');
+    });
+
+    btnGuardarLetra.addEventListener('click', () => {
+        if (listaCanciones.length === 0) return;
+        
+        const cancionActual = listaCanciones[indiceActual];
+        cancionActual.letra = textareaLetra.value;
+
+        const indexGlobal = todasLasCanciones.findIndex(c => c.archivo.name === cancionActual.archivo.name);
+        if (indexGlobal !== -1) {
+            todasLasCanciones[indexGlobal].letra = cancionActual.letra;
+        }
+
+        guardarCancionesEnDB(todasLasCanciones);
+
+        alert("Letra guardada correctamente.");
+        modalLetra.classList.add('oculto');
+    });
+}
 
 function inicializarAudioContext() {
     if (audioCtx) return;
@@ -172,22 +383,33 @@ async function obtenerMetadatos(archivo) {
             const blob = new Blob([pic.data], { type: pic.format });
             cover = URL.createObjectURL(blob);
         }
+
+        let letraExtraida = "";
+        if (common.lyrics && common.lyrics.length > 0) {
+            letraExtraida = typeof common.lyrics[0] === 'string' ? common.lyrics[0] : common.lyrics[0].text;
+        }
+
         return {
             titulo: common.title || archivo.name.replace(/\.[^/.]+$/, ""),
             artista: common.artist || "Artista desconocido",
-            caratula: cover || defaultWaveImage
+            caratula: cover || defaultWaveImage,
+            letra: letraExtraida || ""
         };
     } catch (e) {
         return {
             titulo: archivo.name.replace(/\.[^/.]+$/, ""),
             artista: "Artista desconocido",
-            caratula: defaultWaveImage
+            caratula: defaultWaveImage,
+            letra: ""
         };
     }
 }
 
 inputCargarCarpeta.addEventListener('change', async (e) => {
-    const archivosRaw = Array.from(e.target.files).filter(archivo => archivo.type.startsWith('audio/'));
+    const archivosRaw = Array.from(e.target.files).filter(archivo =>
+        archivo.type.startsWith('audio/') && !listaNegra.includes(archivo.name)
+    );
+
     if (archivosRaw.length === 0) {
         alert("No se encontraron archivos de audio válidos.");
         return;
@@ -217,6 +439,8 @@ inputCargarCarpeta.addEventListener('change', async (e) => {
 
         todasLasCanciones.push({ archivo, ...metadata, subcarpeta: nombreSubcarpeta });
     }
+
+    guardarCancionesEnDB(todasLasCanciones);
 
     selectCarpeta.innerHTML = '<option value="todas">Todas las canciones</option>';
     if (subcarpetas.size > 0) {
@@ -489,9 +713,37 @@ function cancelarTemporizador() {
     textoTemporizador.textContent = 'Temporizador';
 }
 
+// ** INICIO AUTOMÁTICO AL CARGAR LA PÁGINA (RECUPERA MÚSICA Y LETRAS DE INDEXEDDB) **
 window.addEventListener('DOMContentLoaded', () => {
     const splash = document.getElementById('splash-screen');
     const player = document.getElementById('player');
+
+    cargarCancionesDeDB((cancionesRestauradas) => {
+        todasLasCanciones = cancionesRestauradas.filter(c => !listaNegra.includes(c.archivo.name));
+        
+        const subcarpetas = new Set();
+        todasLasCanciones.forEach(c => {
+            if (c.subcarpeta && c.subcarpeta !== "Raíz") subcarpetas.add(c.subcarpeta);
+        });
+
+        if (subcarpetas.size > 0) {
+            selectCarpeta.innerHTML = '<option value="todas">Todas las canciones</option>';
+            subcarpetas.forEach(carpeta => {
+                const option = document.createElement('option');
+                option.value = carpeta;
+                option.textContent = carpeta;
+                selectCarpeta.appendChild(option);
+            });
+            contenedorFiltroCarpeta.classList.remove('oculto');
+        } else {
+            contenedorFiltroCarpeta.classList.add('oculto');
+        }
+
+        if (todasLasCanciones.length > 0) {
+            filtrarPorSubcarpeta('todas');
+        }
+    });
+
     setTimeout(() => {
         if (splash) {
             splash.style.opacity = '0';
