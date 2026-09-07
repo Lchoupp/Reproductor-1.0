@@ -11,6 +11,10 @@ const btnSiguiente = document.getElementById('btn-siguiente');
 const btnAleatorio = document.getElementById('btn-aleatorio');
 const btnRepetir = document.getElementById('btn-repetir');
 
+let modoRepetir = 0;                  // 0: Apagado, 1: Bucle de lista, 2: Repetir canción x2
+let contadorRepeticionActual = 0; 
+const badgeRepetir = btnRepetir.querySelector('.badge-repetir');
+
 const tituloCancion = document.getElementById('titulo-cancion');
 const artistaCancion = document.getElementById('artista-cancion');
 const contador = document.getElementById('contador');
@@ -65,7 +69,6 @@ let todasLasCanciones = [];
 let listaCanciones = [];
 let indiceActual = 0;
 let esAleatorio = false;
-let esRepetir = false;
 let urlBlobActual = null;
 
 let idTemporizador = null;
@@ -616,11 +619,6 @@ btnAleatorio.addEventListener('click', () => {
     btnAleatorio.classList.toggle('activo', esAleatorio);
 });
 
-btnRepetir.addEventListener('click', () => {
-    esRepetir = !esRepetir;
-    btnRepetir.classList.toggle('activo', esRepetir);
-});
-
 cancion.addEventListener('loadedmetadata', () => {
     progreso.max = cancion.duration;
     tiempoTotalElemento.textContent = formatearTiempo(cancion.duration);
@@ -636,17 +634,6 @@ cancion.addEventListener('timeupdate', () => {
 progreso.addEventListener('input', () => {
     cancion.currentTime = progreso.value;
     tiempoActualElemento.textContent = formatearTiempo(progreso.value);
-});
-
-cancion.addEventListener('ended', () => {
-    if (temporizadorExpirado && modoApagado === 'al_finalizar') {
-        pausarCancion();
-        cancelarTemporizador();
-    } else if (esRepetir) {
-        reproducirCancion();
-    } else {
-        siguienteCancion();
-    }
 });
 
 inputVolumen.addEventListener('input', (e) => {
@@ -753,7 +740,6 @@ function cancelarTemporizador() {
     textoTemporizador.textContent = 'Temporizador';
 }
 
-// Función encargada de dibujar el visualizador de audio en tiempo real
 function iniciarVisualizador() {
     const canvas = document.getElementById('visualizador');
     if (!canvas) return;
@@ -775,7 +761,7 @@ function iniciarVisualizador() {
         for (let i = 0; i < bufferLength; i++) {
             const alturaBarra = (dataArray[i] / 255) * canvas.height;
 
-            ctx.fillStyle = '#1db954'; // Color verde Spotify
+            ctx.fillStyle = '#1db954';
             ctx.fillRect(x, canvas.height - alturaBarra, anchoBarra, alturaBarra);
 
             x += anchoBarra + 1;
@@ -828,4 +814,130 @@ window.addEventListener('DOMContentLoaded', () => {
             }, 600);
         }
     }, 2500);
+});
+
+// ==========================================================
+// NUEVA LÓGICA UNIFICADA: BOTÓN DE REPETIR (3 ESTADOS)
+// ==========================================================
+btnRepetir.addEventListener('click', () => {
+    // Cicla estrictamente de 0 -> 1 -> 2 -> 0
+    modoRepetir = (modoRepetir + 1) % 3; 
+    
+    btnRepetir.classList.remove('repetir-estado-0', 'repetir-estado-1', 'repetir-estado-2');
+    btnRepetir.classList.add(`repetir-estado-${modoRepetir}`);
+
+    if (modoRepetir === 2) {
+        badgeRepetir.style.display = 'inline-block';
+        contadorRepeticionActual = 0;
+    } else {
+        badgeRepetir.style.display = 'none';
+    }
+});
+
+// ==========================================================
+// NUEVA LÓGICA UNIFICADA: EVENTO 'ended'
+// ==========================================================
+cancion.addEventListener('ended', () => {
+    if (temporizadorExpirado && modoApagado === 'al_finalizar') {
+        pausarCancion();
+        cancelarTemporizador();
+        return;
+    }
+
+    if (modoRepetir === 0) {
+        // Estado 0: Apagado (Pasa a la siguiente o frena si es la última)
+        if (indiceActual < listaCanciones.length - 1) {
+            siguienteCancion();
+        } else {
+            console.log("Fin de la lista de reproducción.");
+        }
+    } 
+    else if (modoRepetir === 1) {
+        // Estado 1: Bucle completo de lista
+        if (indiceActual < listaCanciones.length - 1) {
+            siguienteCancion();
+        } else {
+            indiceActual = 0; 
+            cargarCancion(indiceActual);
+        }
+    } 
+    else if (modoRepetir === 2) {
+        // Estado 2: Repite la canción actual exactamente 2 veces
+        contadorRepeticionActual++;
+        
+        if (contadorRepeticionActual < 2) {
+            cancion.currentTime = 0;
+            cancion.play();
+        } else {
+            contadorRepeticionActual = 0;
+            if (indiceActual < listaCanciones.length - 1) {
+                siguienteCancion();
+            } else {
+                indiceActual = 0;
+                cargarCancion(indiceActual);
+            }
+        }
+    }
+});
+// ==========================================
+// CONTROL DE MODO MINIMIZADO Y GESTOS (AÑADIR AL FINAL DE app.js)
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Iniciar la app en modo minimizado (solo se ve la lista y el mini reproductor abajo si hay música)
+    document.body.classList.add('modo-minimizado');
+});
+
+// 2. Al hacer clic en la barra/reproductor minimizado, expandir a pantalla completa
+const reproductorSeccion = document.getElementById('vista-reproductor');
+
+if (reproductorSeccion) {
+    reproductorSeccion.addEventListener('click', (e) => {
+        // Si está minimizado y hacen clic en la barra (pero no directamente en los botones de control)
+        if (document.body.classList.contains('modo-minimizado') && !e.target.closest('button')) {
+            document.body.classList.remove('modo-minimizado');
+        }
+    });
+}
+
+// 3. Gesto de deslizar hacia abajo (Swipe Down) en la carátula para minimizar
+let toqueYInicial = 0;
+const caratula = document.getElementById('imagen-caratula');
+
+if (caratula) {
+    caratula.addEventListener('touchstart', (e) => {
+        toqueYInicial = e.touches[0].clientY;
+    });
+
+    caratula.addEventListener('touchend', (e) => {
+        let toqueYFinal = e.changedTouches[0].clientY;
+        
+        // Si el deslizamiento hacia abajo es mayor a 50 píxeles
+        if (toqueYFinal - toqueYInicial > 50) {
+            document.body.classList.add('modo-minimizado');
+        }
+    });
+}
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Lógica para expandir al hacer clic en el reproductor minimizado
+    const reproductor = document.getElementById('reproductor'); // Reemplaza 'reproductor' con el ID de tu contenedor principal
+    
+    if (reproductor) {
+        reproductor.addEventListener('click', (e) => {
+            if (document.body.classList.contains('modo-minimizado')) {
+                if (!e.target.closest('.controles-principales') && !e.target.closest('button')) {
+                    document.body.classList.remove('modo-minimizado');
+                }
+            }
+        });
+    }
+
+    // 2. Lógica opcional para volver a minimizar
+    const btnMinimizar = document.getElementById('btn-minimizar'); 
+    if (btnMinimizar) {
+        btnMinimizar.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.body.classList.add('modo-minimizado');
+        });
+    }
 });
