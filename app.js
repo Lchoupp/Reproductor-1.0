@@ -92,9 +92,9 @@ const PRESETS = {
     vocal: [-3, 2, 6, 4, -2]
 };
 
-// ** GESTIÓN DE INDEXEDDB PARA PERSISTENCIA DE MÚSICA Y LETRAS **
+// ** GESTIÓN DE INDEXEDDB PARA PERSISTENCIA DE MÚSICA, LETRAS Y CARÁTULAS EN BASE64 **
 function guardarCancionesEnDB(canciones) {
-    const request = indexedDB.open("ReproductorDB", 1);
+    const request = indexedDB.open("ReproductorDB", 3);
     
     request.onupgradeneeded = (e) => {
         const db = e.target.result;
@@ -116,7 +116,7 @@ function guardarCancionesEnDB(canciones) {
                 metadata: { 
                     titulo: c.titulo, 
                     artista: c.artista, 
-                    caratula: c.caratula,
+                    caratula: c.caratula, // Guardamos la URL en Base64 o default directamente
                     letra: c.letra || "" 
                 } 
             });
@@ -125,7 +125,7 @@ function guardarCancionesEnDB(canciones) {
 }
 
 function cargarCancionesDeDB(callback) {
-    const request = indexedDB.open("ReproductorDB", 1);
+    const request = indexedDB.open("ReproductorDB", 3);
     
     request.onupgradeneeded = (e) => {
         const db = e.target.result;
@@ -150,7 +150,7 @@ function cargarCancionesDeDB(callback) {
                     subcarpeta: item.subcarpeta,
                     titulo: item.metadata.titulo,
                     artista: item.metadata.artista,
-                    caratula: item.metadata.caratula,
+                    caratula: item.metadata.caratula || defaultWaveImage,
                     letra: item.metadata.letra || ""
                 }));
                 callback(cancionesRestauradas);
@@ -377,11 +377,18 @@ async function obtenerMetadatos(archivo) {
     try {
         const metadata = await window.musicMetadata.parseBlob(archivo);
         const common = metadata.common;
-        let cover = null;
+        let coverUrl = defaultWaveImage;
+
         if (common.picture && common.picture.length > 0) {
             const pic = common.picture[0];
-            const blob = new Blob([pic.data], { type: pic.format });
-            cover = URL.createObjectURL(blob);
+            let binary = '';
+            const bytes = new Uint8Array(pic.data);
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            const base64String = window.btoa(binary);
+            coverUrl = `data:${pic.format};base64,${base64String}`;
         }
 
         let letraExtraida = "";
@@ -392,7 +399,7 @@ async function obtenerMetadatos(archivo) {
         return {
             titulo: common.title || archivo.name.replace(/\.[^/.]+$/, ""),
             artista: common.artist || "Artista desconocido",
-            caratula: cover || defaultWaveImage,
+            caratula: coverUrl,
             letra: letraExtraida || ""
         };
     } catch (e) {
