@@ -636,3 +636,95 @@ input[type="range"] {
 #btn-guardar-letra:hover {
     background: #1aa34a;
 }
+/* Mantener visibles solo los controles esenciales en la barra minimizada */
+body.modo-minimizado .controles-reproduccion {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+/* Ocultar botones secundarios (como aleatorio o repetir) pero dejar anterior, play/pausa y siguiente */
+body.modo-minimizado #btn-aleatorio,
+body.modo-minimizado #btnRepetir {
+    display: none !important;
+}
+
+body.modo-minimizado #btn-anterior,
+body.modo-minimizado #btn-reproducir,
+body.modo-minimizado #btn-siguiente {
+    display: flex !important;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+body.modo-minimizado #btn-reproducir {
+    font-size: 20px; /* Destacar ligeramente el botón de play/pausa */
+}
+/* ==========================================
+   ESTILOS PARA EL MODO MINIMIZADO (BARRA FLOTANTE)
+   ========================================== */
+
+/* Cuando la app está minimizada, el reproductor completo se convierte en una barra inferior */
+body.modo-minimizado .contenedor-reproductor {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-width: 100% !important;
+    border-radius: 16px 16px 0 0;
+    padding: 12px 20px;
+    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    background: #181818;
+    transition: all 0.3s ease;
+}
+
+/* Ocultar elementos que no caben en la barra minimizada */
+body.modo-minimizado .tarjeta-caratula,
+body.modo-minimizado .seccion-progreso,
+body.modo-minimizado #visualizador,
+body.modo-minimizado .seccion-volumen,
+body.modo-minimizado .encabezado-app,
+body.modo-minimizado .control-cargar,
+body.modo-minimizado .seccion-busqueda,
+body.modo-minimizado .seccion-filtro {
+    display: none !important;
+}
+
+/* Permitir que la lista de canciones ocupe el fondo y tenga espacio abajo para que la barra no la tape */
+body.modo-minimizado .seccion-playlist {
+    display: block !important;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    margin-bottom: 70px;
+}
+
+/* Compactar la información de la canción dentro de la barra flotante */
+body.modo-minimizado .detalles-cancion {
+    flex: 1;
+    text-align: left;
+    margin: 0;
+    overflow: hidden;
+}
+
+body.modo-minimizado .detalles-cancion h3 {
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+body.modo-minimizado .detalles-cancion p {
+    font-size: 0.8rem;
+    margin: 0;
+}
+
+body.modo-minimizado #contador {
+    display: none;
+}
