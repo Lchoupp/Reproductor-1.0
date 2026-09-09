@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Reproductor de Música PWA</title>
     
     <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
@@ -29,7 +30,7 @@
     </div>
 
     <!-- Contenedor Principal / Reproductor -->
-    <main id="player" class="hidden">
+    <main id="player">
         
         <!-- VISTA REPRODUCTOR -->
         <section id="vista-reproductor" class="contenedor-reproductor">
@@ -66,7 +67,7 @@
                 <label for="cargar-carpeta" class="btn-cargar">
                     <i class="fa-solid fa-folder-open"></i> Seleccionar Carpeta
                 </label>
-                <input type="file" id="cargar-carpeta" webkitdirectory directory multiple accept="audio/*">
+                <input type="file" id="cargar-carpeta" multiple>
                 
                 <!-- Botón de Lista Negra con Menú Desplegable -->
                 <div class="contenedor-menu-lista-negra">
