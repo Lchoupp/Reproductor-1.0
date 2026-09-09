@@ -728,3 +728,9 @@ body.modo-minimizado .detalles-cancion p {
 body.modo-minimizado #contador {
     display: none;
 }
+#player.hidden {
+    display: none !important;
+}
+#player {
+    display: block !important;
+}
